@@ -1,4 +1,4 @@
-import std/[parseopt, os, strutils, strformat, times]
+import std/[parseopt, os, strformat, times, terminal]
 
 
 var
@@ -6,53 +6,42 @@ var
   showDirs = false
   showFiles = false
 
+let dateTimeFormat = "MMM d HH:mm"
+
+
+proc pathInfo(path: string): FileInfo =
+  result = getFileInfo(path, false)
 
 proc formatPermissions(path: string): string =
   let permissions = getFileInfo(path, false).permissions
-  var user: seq[string] = @[]
-  var group: seq[string] = @[]
-  var others: seq[string] = @[]
 
-  for perm in permissions:
-    case perm
-    of fpUserExec:
-      user.add("x")
-    of fpGroupExec:
-      group.add("x")
-    of fpOthersExec:
-      others.add("x")
-    of fpUserRead:
-      user.add("r")
-    of fpGroupRead:
-      group.add("r")
-    of fpOthersRead:
-      others.add("r")
-    of fpUserWrite:
-      user.add("w")
-    of fpGroupWrite:
-      group.add("w")
-    of fpOthersWrite:
-      others.add("w")
+  template bit(flag: FilePermission, letter: char): char =
+    if flag in permissions: letter else: '-'
 
-  return user.join("") & "-" & group.join("") & "-" & others.join("")
-
+  result = ""
+  result.add bit(fpUserRead, 'r')
+  result.add bit(fpUserWrite, 'w')
+  result.add bit(fpUserExec, 'x')
+  result.add bit(fpGroupRead, 'r')
+  result.add bit(fpGroupWrite, 'w')
+  result.add bit(fpGroupExec, 'x')
+  result.add bit(fpOthersRead, 'r')
+  result.add bit(fpOthersWrite, 'w')
+  result.add bit(fpOthersExec, 'x')
 
 
 iterator directories(): string =
   for kind, dirPath in walkDir(currentPath):
-    if kind == pcDir:
-      yield dirPath
+    if kind == pcDir: yield dirPath
 
 iterator files(): string =
   for kind, filePath in walkDir(currentPath):
-    if kind == pcFile:
-      yield filePath
+    if kind == pcFile: yield filePath
 
 
 for kind, key, val in getopt():
   case kind
-  of cmdEnd:
-    break
+  of cmdEnd: break
   of cmdShortOption, cmdLongOption:
     case key
     of "h", "help":
@@ -66,39 +55,57 @@ Options:
   -h, --help    Show this help
 """
       quit(0)
-    of "d", "dirs":
-      showDirs = true
-    of "f", "files":
-      showFiles = true
+    of "d", "dirs": showDirs = true
+    of "f", "files": showFiles = true
     else:
       echo "Unknown option: ", key
       quit(1)
-  of cmdArgument:
-    currentPath = key
+  of cmdArgument: currentPath = key
 
 
 if showDirs:
   for dir in directories():
-    let extractedDirName = dir.extractFilename
-    let dateTime = local(getFileInfo(dir).lastWriteTime).format("MMM d HH:mm")
+    let
+      extractedDirName = dir.extractFilename
+      dateTime = local(pathInfo(dir).lastWriteTime).format(dateTimeFormat)
+      coloredExtractedDirName = ansiForegroundColorCode(fgBlue) &
+        extractedDirName & ansiResetCode
+      coloredDirType = ansiForegroundColorCode(fgBlue) & "D" & ansiResetCode
 
-    echo fmt"{formatPermissions(dir):<12} {getFileInfo(dir).size:<12} {dateTime:<14} {extractedDirName}"
+    echo fmt"{coloredDirType:<5} {formatPermissions(dir):<15} {pathInfo(dir).size:<15} {dateTime:<15} {coloredExtractedDirName}"
 
 elif showFiles:
   for file in files():
-    let extractedFileName = file.extractFilename
-    let dateTime = local(getFileInfo(file).lastWriteTime).format("MMM d HH:mm")
+    let
+      extractedFileName = file.extractFilename
+      dateTime = local(pathInfo(file).lastWriteTime).format(dateTimeFormat)
+      coloredExtractedFileName = ansiForegroundColorCode(fgWhite) &
+          extractedFileName & ansiResetCode
+      coloredFileType = ansiForegroundColorCode(fgWhite) & "F" & ansiResetCode
 
-    echo fmt"{formatPermissions(file):<12} {getFileInfo(file).size:<12} {dateTime:<14} {extractedFileName}"
+    echo fmt"{coloredFileType:<5} {formatPermissions(file):<15} {pathInfo(file).size:<15} {dateTime:<15} {coloredExtractedFileName}"
 
 else:
   for kind, path in walkDir(currentPath):
-    let extractedPathName = path.extractFilename
-    let dateTime = local(getFileInfo(path, false).lastWriteTime).format("MMM d HH:mm")
+    let
+      extractedPathName = path.extractFilename
+      dateTime = local(pathInfo(path).lastWriteTime).format(dateTimeFormat)
+      pathType =
+        if kind == pcDir: "D"
+        elif kind == pcFile: "F"
+        elif symlinkExists(path): "-"
+        else: ""
+      color =
+        if kind == pcDir: ansiForegroundColorCode(fgBlue)
+        elif kind == pcFile: ansiForegroundColorCode(fgWhite)
+        else: ""
+      coloredExtractedPathName = color & extractedPathName & ansiResetCode
+      coloredPathType = color & pathType & ansiResetCode
 
     if symlinkExists(path):
-      echo fmt"{formatPermissions(path):<12} {getFileInfo(path, false).size:<12} {dateTime:<14} {extractedPathName} -> {expandSymlink(path)}"
+      echo fmt"{coloredPathType} {formatPermissions(path)} {pathInfo(path).size:>8} {dateTime:>16} {coloredExtractedPathName} -> {expandSymlink(path)}"
     else:
-      echo fmt"{formatPermissions(path):<12} {getFileInfo(path).size:<12} {dateTime:<14} {extractedPathName}"
+      echo fmt"{coloredPathType} {formatPermissions(path)} {pathInfo(path).size:>8} {dateTime:>16} {coloredExtractedPathName}"
+
 
 
