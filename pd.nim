@@ -50,19 +50,12 @@ proc formatDateTime(path: string): string =
 proc formatPermissions(path: string): string =
   let permissions = getFileInfo(path, false).permissions
 
-  template flag(flag: FilePermission, letter: char): char =
-    if flag in permissions: letter else: '-'
-
-  result = ""
-  result.add flag(fpUserRead, 'r')
-  result.add flag(fpUserWrite, 'w')
-  result.add flag(fpUserExec, 'x')
-  result.add flag(fpGroupRead, 'r')
-  result.add flag(fpGroupWrite, 'w')
-  result.add flag(fpGroupExec, 'x')
-  result.add flag(fpOthersRead, 'r')
-  result.add flag(fpOthersWrite, 'w')
-  result.add flag(fpOthersExec, 'x')
+  for (permission, letter) in [
+    (fpUserRead, 'r'), (fpUserWrite, 'w'), (fpUserExec, 'x'),
+    (fpGroupRead, 'r'), (fpGroupWrite, 'w'), (fpGroupExec, 'x'),
+    (fpOthersRead, 'r'), (fpOthersWrite, 'w'), (fpOthersExec, 'x')
+  ]:
+    result.add(if permission in permissions: letter else: '-')
 
 
 if showOnlyDirs:
