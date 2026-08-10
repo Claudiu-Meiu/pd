@@ -72,7 +72,7 @@ if showDirs:
         extractedDirName & ansiResetCode
       coloredDirType = ansiForegroundColorCode(fgBlue) & "D" & ansiResetCode
 
-    echo fmt"{coloredDirType:<5} {formatPermissions(dir):<15} {pathInfo(dir).size:<15} {dateTime:<15} {coloredExtractedDirName}"
+    echo fmt"{coloredDirType} {formatPermissions(dir)} {pathInfo(dir).size:>8} {dateTime:>16} {coloredExtractedDirName}"
 
 elif showFiles:
   for file in files():
@@ -83,7 +83,7 @@ elif showFiles:
           extractedFileName & ansiResetCode
       coloredFileType = ansiForegroundColorCode(fgWhite) & "F" & ansiResetCode
 
-    echo fmt"{coloredFileType:<5} {formatPermissions(file):<15} {pathInfo(file).size:<15} {dateTime:<15} {coloredExtractedFileName}"
+    echo fmt"{coloredFileType} {formatPermissions(file)} {pathInfo(file).size:>8} {dateTime:>16} {coloredExtractedFileName}"
 
 else:
   for kind, path in walkDir(currentPath):
