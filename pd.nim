@@ -85,7 +85,7 @@ else:
       pathType =
         if kind == pcDir: "d"
         elif kind == pcFile: "f"
-        elif symlinkExists(path): "-"
+        elif kind == pcLinkToFile: "-"
         else: ""
       color =
         if kind == pcDir: ansiForegroundColorCode(fgBlue)
@@ -94,7 +94,7 @@ else:
       coloredExtractedPathName = color & extractedPathName & ansiResetCode
       coloredPathType = color & pathType & ansiResetCode
 
-    if symlinkExists(path):
+    if kind == pcLinkToFile:
       echo fmt"{coloredPathType} {formatPermissions(path)} {pathInfo(path).size:>8} {formatDateTime(path):>16} {coloredExtractedPathName} -> {expandSymlink(path)}"
     else:
       echo fmt"{coloredPathType} {formatPermissions(path)} {pathInfo(path).size:>8} {formatDateTime(path):>16} {coloredExtractedPathName}"
