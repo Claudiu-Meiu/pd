@@ -1,10 +1,15 @@
 import std/[parseopt, os, strformat, times, terminal]
 
 
+type Filter = enum
+  all
+  dirs
+  files
+
+
 var
   currentPath = getCurrentDir()
-  showOnlyDirs = false
-  showOnlyFiles = false
+  filter = all
 
 
 for kind, key, val in getopt():
@@ -23,21 +28,12 @@ Options:
   -h, --help    Show this help
 """
       quit(0)
-    of "d", "dirs": showOnlyDirs = true
-    of "f", "files": showOnlyFiles = true
+    of "d", "dirs": filter = dirs
+    of "f", "files": filter = files
     else:
       echo "Unknown option: ", key
       quit(1)
   of cmdArgument: currentPath = key
-
-
-iterator directories(): string =
-  for kind, dirPath in walkDir(currentPath):
-    if kind == pcDir: yield dirPath
-
-iterator files(): string =
-  for kind, filePath in walkDir(currentPath):
-    if kind == pcFile: yield filePath
 
 
 proc pathInfo(path: string): FileInfo =
@@ -57,47 +53,47 @@ proc formatPermissions(path: string): string =
   ]:
     result.add(if permission in permissions: letter else: '-')
 
-
-if showOnlyDirs:
-  for dir in directories():
-    let
-      extractedDirName = dir.extractFilename
-      coloredExtractedDirName = ansiForegroundColorCode(fgBlue) &
-        extractedDirName & ansiResetCode
-      coloredDirType = ansiForegroundColorCode(fgBlue) & "d" & ansiResetCode
-
-    echo fmt"{coloredDirType} {formatPermissions(dir)} {pathInfo(dir).size:>8} {formatDateTime(dir):>16} {coloredExtractedDirName}"
-
-elif showOnlyFiles:
-  for file in files():
-    let
-      extractedFileName = file.extractFilename
-      coloredExtractedFileName = ansiForegroundColorCode(fgWhite) &
-          extractedFileName & ansiResetCode
-      coloredFileType = ansiForegroundColorCode(fgWhite) & "f" & ansiResetCode
-
-    echo fmt"{coloredFileType} {formatPermissions(file)} {pathInfo(file).size:>8} {formatDateTime(file):>16} {coloredExtractedFileName}"
-
-else:
+proc output() =
   for kind, path in walkDir(currentPath):
     let
+      isLink = kind == pcLinkToFile or kind == pcLinkToDir
+      symlinkTarget = if isLink: expandSymlink(path) else: ""
+
+      isDir =
+        kind == pcDir or
+        kind == pcLinkToDir
+
+      isFile =
+        kind == pcFile or
+        kind == pcLinkToFile
+
+      shouldShow =
+        case filter
+        of all: true
+        of dirs: isDir
+        of files: isFile
+
+    if not shouldShow: continue
+
+    let
       extractedPathName = path.extractFilename
+
       pathType =
-        if kind == pcDir: "d"
-        elif kind == pcFile: "f"
-        elif kind == pcLinkToFile: "-"
-        else: ""
+        case kind
+        of pcDir: "d"
+        of pcFile: "f"
+        of pcLinkToFile, pcLinkToDir: "-"
+
       color =
-        if kind == pcDir: ansiForegroundColorCode(fgBlue)
-        elif kind == pcFile: ansiForegroundColorCode(fgWhite)
-        else: ""
-      coloredExtractedPathName = color & extractedPathName & ansiResetCode
+        case kind
+        of pcDir, pcLinkToDir: ansiForegroundColorCode(fgBlue)
+        of pcFile, pcLinkToFile: ansiForegroundColorCode(fgWhite)
+
       coloredPathType = color & pathType & ansiResetCode
+      coloredPathName = color & extractedPathName & ansiResetCode
+      symlink = if isLink: " -> " & symlinkTarget else: ""
 
-    if kind == pcLinkToFile:
-      echo fmt"{coloredPathType} {formatPermissions(path)} {pathInfo(path).size:>8} {formatDateTime(path):>16} {coloredExtractedPathName} -> {expandSymlink(path)}"
-    else:
-      echo fmt"{coloredPathType} {formatPermissions(path)} {pathInfo(path).size:>8} {formatDateTime(path):>16} {coloredExtractedPathName}"
-
+    echo fmt"{coloredPathType} {formatPermissions(path)} {pathInfo(path).size:>8} {formatDateTime(path):>16} {coloredPathName}{symlink}"
 
 
+output()
