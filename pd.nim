@@ -44,7 +44,7 @@ proc formatDateTime(path: string): string =
   result = local(pathInfo(path).lastWriteTime).format(dateTimeFormat)
 
 proc formatPermissions(path: string): string =
-  let permissions = getFileInfo(path, false).permissions
+  let permissions = pathInfo(path).permissions
 
   for (permission, letter) in [
     (fpUserRead, 'r'), (fpUserWrite, 'w'), (fpUserExec, 'x'),
